@@ -7,8 +7,10 @@
 '''
 
 import os
+import shutil
 import yaml
 import torch
+torch.set_float32_matmul_precision('medium')
 import datetime
 import importlib
 import numpy as np
@@ -142,20 +144,27 @@ if __name__ == '__main__':
     log_folder = 'logs/' + configs['dataset_params']['pc_dataset_type']
     tb_logger = pl_loggers.TensorBoardLogger(log_folder, name=configs.log_dir, default_hp_metric=False)
     os.makedirs(f'{log_folder}/{configs.log_dir}', exist_ok=True)
-    profiler = SimpleProfiler(output_filename=f'{log_folder}/{configs.log_dir}/profiler.txt')
+    profiler = SimpleProfiler(dirpath=f'{log_folder}/{configs.log_dir}/', filename='profiler.txt')
     np.set_printoptions(precision=4, suppress=True)
 
     # save the backup files
     backup_dir = os.path.join(log_folder, configs.log_dir, 'backup_files_%s' % str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')))
     if not configs['test']:
         os.makedirs(backup_dir, exist_ok=True)
-        os.system('cp main.py {}'.format(backup_dir))
-        os.system('cp dataloader/dataset.py {}'.format(backup_dir))
-        os.system('cp dataloader/pc_dataset.py {}'.format(backup_dir))
-        os.system('cp {} {}'.format(configs.config_path, backup_dir))
-        os.system('cp network/base_model.py {}'.format(backup_dir))
-        os.system('cp network/spvcnn.py {}'.format(backup_dir))
-        os.system('cp {}.py {}'.format('network/' + configs['model_params']['model_architecture'], backup_dir))
+        shutil.copy('main.py', backup_dir)
+        shutil.copy('dataloader/dataset.py', backup_dir)
+        shutil.copy('dataloader/pc_dataset.py', backup_dir)
+        shutil.copy(configs.config_path, backup_dir)
+        shutil.copy('network/base_model.py', backup_dir)
+        shutil.copy('network/spvcnn.py', backup_dir)
+        shutil.copy('network/' + configs['model_params']['model_architecture'] + '.py', backup_dir)
+
+        # os.system('copy dataloader/dataset.py {}'.format(backup_dir))
+        # os.system('copy dataloader/pc_dataset.py {}'.format(backup_dir))
+        # os.system('copy {} {}'.format(configs.config_path, backup_dir))
+        # os.system('copy network/base_model.py {}'.format(backup_dir))
+        # os.system('copy network/spvcnn.py {}'.format(backup_dir))
+        # os.system('copy {}.py {}'.format('network/' + configs['model_params']['model_architecture'], backup_dir))
 
     # reproducibility
     torch.manual_seed(configs.seed)
@@ -192,7 +201,7 @@ if __name__ == '__main__':
         # init trainer
         print('Start training...')
         trainer = pl.Trainer(gpus=[i for i in range(num_gpu)],
-                             accelerator='ddp',
+                             accelerator='cuda',
                              max_epochs=configs['train_params']['max_num_epochs'],
                              resume_from_checkpoint=configs.checkpoint if not configs.fine_tune and not configs.pretrain2d else None,
                              callbacks=[checkpoint_callback,
